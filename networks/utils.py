@@ -18,12 +18,12 @@ def save_image(filename, data):
     img.save(filename)
 
 
-def gram_matrix(y):
-    (b, ch, h, w) = y.size()
-    features = y.view(b, ch, w * h)
-    features_t = features.transpose(1, 2)
-    gram = features.bmm(features_t) / (ch * h * w)
-    return gram
+# def gram_matrix(y):
+#     (b, ch, h, w) = y.size()
+#     features = y.view(b, ch, w * h)
+#     features_t = features.transpose(1, 2)
+#     gram = features.bmm(features_t) / (ch * h * w)
+#     return gram
 
 
 def normalize_batch(batch):

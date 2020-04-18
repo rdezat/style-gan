@@ -4,10 +4,10 @@ import torch
 from torchvision import models
 
 
-class Vgg16(torch.nn.Module):
+class Vgg19(torch.nn.Module):
     def __init__(self, requires_grad=False):
-        super(Vgg16, self).__init__()
-        vgg_pretrained_features = models.vgg16(pretrained=True).features
+        super(Vgg19, self).__init__()
+        vgg_pretrained_features = models.vgg19(pretrained=True).features
         self.slice1 = torch.nn.Sequential()
         self.slice2 = torch.nn.Sequential()
         self.slice3 = torch.nn.Sequential()

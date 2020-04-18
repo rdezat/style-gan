@@ -2,9 +2,9 @@ import torch
 import torchvision
 
 
-class TransformerNet(torch.nn.Module):
+class GeneratorNet(torch.nn.Module):
     def __init__(self):
-        super(TransformerNet, self).__init__()
+        super(GeneratorNet, self).__init__()
         # Initial convolution layers
         self.conv1 = ConvLayer(3, 32, kernel_size=9, stride=1)
         self.in1 = torch.nn.InstanceNorm2d(32, affine=True)
@@ -41,7 +41,7 @@ class TransformerNet(torch.nn.Module):
         y = self.deconv3(y)
         return y
 
-
+    
 class ConvLayer(torch.nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride):
         super(ConvLayer, self).__init__()

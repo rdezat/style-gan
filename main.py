@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+ # -*- coding: utf-8 -*-
 """
 Created on Wed Apr 15 13:13:33 2020
 
@@ -16,11 +16,17 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torchvision import datasets
 from torchvision import transforms
+from torchvision.utils import save_image
+from torchvision.models import vgg19
 import torch.onnx
+# from skimage.color import rgb2yuv, yuv2rgb
+from PIL import Image
 
-from generator import utils
-from generator.generator import TransformerNet
-from generator.vgg import Vgg19
+from networks import utils
+from networks.generator import GeneratorNet
+from networks.discriminator import DiscriminatorNet
+from networks.encoder import FeatureExtractor
+from torch.autograd import Variable
 
 
 def check_paths(args):
@@ -50,88 +56,109 @@ def train(args):
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
+    adversarial_loss = torch.nn.MSELoss().to(device)
+    perceptual_loss = torch.nn.L1Loss().to(device)
+
+    # Inicialitzem el generador i el descriminadro
+    generator = GeneratorNet().to(device)
+    discriminator = DiscriminatorNet().to(device)
+    feature_extractor = FeatureExtractor().to(device)
+
+    # Set feature extractor to inference mode
+    feature_extractor.eval()
+
+    # Configurem el DataLoad
     transform = transforms.Compose([
-        transforms.Resize(args.image_size),
+        transforms.Resize(args.image_size, Image.BICUBIC),
         transforms.CenterCrop(args.image_size),
+        # transforms.Lambda(lambda x: rgb2yuv(x)),
         transforms.ToTensor(),
-        transforms.Lambda(lambda x: x.mul(255)),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        # transforms.Lambda(lambda x: x.mul(255)),
         AddGaussianNoise(0., 1.)
     ])
     train_dataset = datasets.ImageFolder(args.dataset, transform)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size)
 
-    transformer = TransformerNet().to(device)
-    optimizer = Adam(transformer.parameters(), args.lr)
-    mse_loss = torch.nn.MSELoss()
-
-    vgg = Vgg19(requires_grad=False).to(device)
-    style_transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Lambda(lambda x: x.mul(255))
-    ])
-    style = utils.load_image(args.style_image, size=args.style_size)
-    style = style_transform(style)
-    style = style.repeat(args.batch_size, 1, 1, 1).to(device)
-
-    features_style = vgg(utils.normalize_batch(style))
-    gram_style = [utils.gram_matrix(y) for y in features_style]
-
+    # Configurem els optimitzadors
+    optimizer_G = Adam(generator.parameters(), args.lr)
+    optimizer_D = Adam(discriminator.parameters(), args.lr)
+    
+    # feature encoder network
+    vgg = vgg19(pretrained=True, progress=True)
+    
+    Tensor = torch.cuda.FloatTensor if device.type == "cuda" else torch.FloatTensor
+    
+    # Entrenament
+    
     for e in range(args.epochs):
-        transformer.train()
-        agg_content_loss = 0.
-        agg_style_loss = 0.
-        count = 0
         for batch_id, (x, _) in enumerate(train_loader):
-            n_batch = len(x)
-            count += n_batch
-            optimizer.zero_grad()
+            
+            # Configure input
+            real_imgs = Variable(x.type(Tensor))
 
-            x = x.to(device)
-            y = transformer(x)
+            # Adversarial ground truths
+            valid = Variable(Tensor(np.ones((real_imgs.size(0), *discriminator.output_shape))), requires_grad=False)
+            fake = Variable(Tensor(np.zeros((real_imgs.size(0), *discriminator.output_shape))), requires_grad=False)
 
-            y = utils.normalize_batch(y)
-            x = utils.normalize_batch(x)
+            # Entrenament del Generador
+            generator.train()
+            
+            optimizer_G.zero_grad()
 
-            features_y = vgg(y)
-            features_x = vgg(x)
+            # Generem un batch d'images
+            # x = x.to(device)
+            fake_imgs = generator(real_imgs)
 
-            content_loss = args.content_weight * mse_loss(features_y.relu2_2, features_x.relu2_2)
+            # Pèrdua que mesura la capacitat del generador per enganyar el discriminador
+            g_loss = adversarial_loss(discriminator(fake_imgs), valid)             
 
-            style_loss = 0.
-            for ft_y, gm_s in zip(features_y, gram_style):
-                gm_y = utils.gram_matrix(ft_y)
-                style_loss += mse_loss(gm_y, gm_s[:n_batch, :, :])
-            style_loss *= args.style_weight
+            # g_loss.backward(retain_graph=True)
+            optimizer_G.step()
 
-            total_loss = content_loss + style_loss
-            total_loss.backward()
-            optimizer.step()
+            g_loss.backward()
+            optimizer_G.step()
 
-            agg_content_loss += content_loss.item()
-            agg_style_loss += style_loss.item()
+            #  Entrenament del Discriminador
+    
+            optimizer_D.zero_grad()
+    
+            # Mesura de la habilitat del discriminadoe de classificar les imatges generades
+            real_loss = adversarial_loss(discriminator(real_imgs), valid)
+            fake_loss = adversarial_loss(discriminator(fake_imgs.detach()), fake)
+            d_loss = 0.5 * (real_loss + fake_loss)
 
-            if (batch_id + 1) % args.log_interval == 0:
-                mesg = "{}\tEpoch {}:\t[{}/{}]\tcontent: {:.6f}\tstyle: {:.6f}\ttotal: {:.6f}".format(
-                    time.ctime(), e + 1, count, len(train_dataset),
-                                  agg_content_loss / (batch_id + 1),
-                                  agg_style_loss / (batch_id + 1),
-                                  (agg_content_loss + agg_style_loss) / (batch_id + 1)
-                )
-                print(mesg)
+            # Perceptual loss
+            gen_features = feature_extractor(fake_imgs)
+            real_features = feature_extractor(real_imgs).detach()
+            loss_content = perceptual_loss(gen_features, real_features)
 
-            if args.checkpoint_model_dir is not None and (batch_id + 1) % args.checkpoint_interval == 0:
-                transformer.eval().cpu()
-                ckpt_model_filename = "ckpt_epoch_" + str(e) + "_batch_id_" + str(batch_id + 1) + ".pth"
-                ckpt_model_path = os.path.join(args.checkpoint_model_dir, ckpt_model_filename)
-                torch.save(transformer.state_dict(), ckpt_model_path)
-                transformer.to(device).train()
+            loss_G = loss_content + d_loss
+
+            loss_G.backward()
+            optimizer_D.step()
+    
+            print(
+                "[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f]"
+                % (e, args.epochs, batch_id, len(train_loader), d_loss.item(), g_loss.item())
+            )
+    
+            batches_done = e * len(train_loader) + batch_id
+            if batches_done % args.log_interval == 0:
+                save_image(fake_imgs.data[:25], "/content/drive/My Drive/TFM/Generative Adversarial network/style-gan/images/%d.png" % batches_done , nrow=5, normalize=True)
 
     # save model
-    transformer.eval().cpu()
-    save_model_filename = "epoch_" + str(args.epochs) + "_" + str(time.ctime()).replace(' ', '_') + "_" + str(
+    generator.eval().cpu()
+    save_model_filename = "generator_epoch_" + str(args.epochs) + "_" + str(time.ctime()).replace(' ', '_') + "_" + str(
         args.content_weight) + "_" + str(args.style_weight) + ".model"
     save_model_path = os.path.join(args.save_model_dir, save_model_filename)
-    torch.save(transformer.state_dict(), save_model_path)
+    torch.save(generator.state_dict(), save_model_path)
+    
+    discriminator.eval().cpu()
+    save_model_filename = "discriminator_epoch_" + str(args.epochs) + "_" + str(time.ctime()).replace(' ', '_') + "_" + str(
+        args.content_weight) + "_" + str(args.style_weight) + ".model"
+    save_model_path = os.path.join(args.save_model_dir, save_model_filename)
+    torch.save(generator.state_dict(), save_model_path)
 
     print("\nDone, trained model saved at", save_model_path)
 
@@ -185,32 +212,24 @@ def stylize_onnx_caffe2(content_image, args):
 
     return torch.from_numpy(c2_out)
 
-
-
-
-
 def main():
-    main_arg_parser = argparse.ArgumentParser(description="parser for fast-neural-style")
+    main_arg_parser = argparse.ArgumentParser(description="parser for Artsy-GAN")
     subparsers = main_arg_parser.add_subparsers(title="subcommands", dest="subcommand")
 
     train_arg_parser = subparsers.add_parser("train", help="parser for training arguments")
-    train_arg_parser.add_argument("--epochs", type=int, default=2,
+    train_arg_parser.add_argument("--epochs", type=int, default=200,
                                   help="number of training epochs, default is 2")
-    train_arg_parser.add_argument("--batch-size", type=int, default=4,
+    train_arg_parser.add_argument("--batch-size", type=int, default=1,
                                   help="batch size for training, default is 4")
     train_arg_parser.add_argument("--dataset", type=str, required=True,
                                   help="path to training dataset, the path should point to a folder "
                                        "containing another folder with all the training images")
-    train_arg_parser.add_argument("--style-image", type=str, default="images/style-images/mosaic.jpg",
-                                  help="path to style-image")
     train_arg_parser.add_argument("--save-model-dir", type=str, required=True,
                                   help="path to folder where trained model will be saved.")
     train_arg_parser.add_argument("--checkpoint-model-dir", type=str, default=None,
                                   help="path to folder where checkpoints of trained models will be saved")
     train_arg_parser.add_argument("--image-size", type=int, default=256,
                                   help="size of training images, default is 256 X 256")
-    train_arg_parser.add_argument("--style-size", type=int, default=None,
-                                  help="size of style-image, default is the original size of style image")
     train_arg_parser.add_argument("--cuda", type=int, required=True,
                                   help="set it to 1 for running on GPU, 0 for CPU")
     train_arg_parser.add_argument("--seed", type=int, default=42,
@@ -221,10 +240,11 @@ def main():
                                   help="weight for style-loss, default is 1e10")
     train_arg_parser.add_argument("--lr", type=float, default=1e-3,
                                   help="learning rate, default is 1e-3")
-    train_arg_parser.add_argument("--log-interval", type=int, default=500,
+    train_arg_parser.add_argument("--log-interval", type=int, default=20,
                                   help="number of images after which the training loss is logged, default is 500")
     train_arg_parser.add_argument("--checkpoint-interval", type=int, default=2000,
                                   help="number of batches after which a checkpoint of the trained model will be created")
+    train_arg_parser.add_argument("--latent_dim", type=int, default=100, help="dimensionality of the latent space")
 
     eval_arg_parser = subparsers.add_parser("eval", help="parser for evaluation/stylizing arguments")
     eval_arg_parser.add_argument("--content-image", type=str, required=True,
