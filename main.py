@@ -56,8 +56,8 @@ def train(args):
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    adversarial_loss = torch.nn.MSELoss().to(device)
-    perceptual_loss = torch.nn.L1Loss().to(device)
+    mse_loss = torch.nn.MSELoss().to(device)
+    l1_loss = torch.nn.L1Loss().to(device)
 
     # Inicialitzem el generador i el descriminadro
     generator = GeneratorNet().to(device)
@@ -84,9 +84,6 @@ def train(args):
     optimizer_G = Adam(generator.parameters(), args.lr)
     optimizer_D = Adam(discriminator.parameters(), args.lr)
     
-    # feature encoder network
-    vgg = vgg19(pretrained=True, progress=True)
-    
     Tensor = torch.cuda.FloatTensor if device.type == "cuda" else torch.FloatTensor
     
     # Entrenament
@@ -111,12 +108,16 @@ def train(args):
             fake_imgs = generator(real_imgs)
 
             # Pèrdua que mesura la capacitat del generador per enganyar el discriminador
-            g_loss = adversarial_loss(discriminator(fake_imgs), valid)             
-
-            # g_loss.backward(retain_graph=True)
-            optimizer_G.step()
-
-            g_loss.backward()
+            adversarial_loss = mse_loss(discriminator(fake_imgs), valid)             
+            
+            # Perceptual loss
+            gen_features = feature_extractor(fake_imgs)
+            real_features = feature_extractor(real_imgs).detach()
+            perceptual_loss = l1_loss(gen_features, real_features)
+            
+            loss_G = perceptual_loss + adversarial_loss
+            
+            loss_G.backward()
             optimizer_G.step()
 
             #  Entrenament del Discriminador
@@ -126,21 +127,15 @@ def train(args):
             # Mesura de la habilitat del discriminadoe de classificar les imatges generades
             real_loss = adversarial_loss(discriminator(real_imgs), valid)
             fake_loss = adversarial_loss(discriminator(fake_imgs.detach()), fake)
-            d_loss = 0.5 * (real_loss + fake_loss)
+            loss_D = 0.5 * (real_loss + fake_loss)
 
-            # Perceptual loss
-            gen_features = feature_extractor(fake_imgs)
-            real_features = feature_extractor(real_imgs).detach()
-            loss_content = perceptual_loss(gen_features, real_features)
 
-            loss_G = loss_content + d_loss
-
-            loss_G.backward()
+            loss_D.backward()
             optimizer_D.step()
     
             print(
                 "[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f]"
-                % (e, args.epochs, batch_id, len(train_loader), d_loss.item(), g_loss.item())
+                % (e, args.epochs, batch_id, len(train_loader), loss_D.item(), loss_G.item())
             )
     
             batches_done = e * len(train_loader) + batch_id
