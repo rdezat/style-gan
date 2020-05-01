@@ -17,10 +17,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets
 from torchvision import transforms
 from torchvision.utils import save_image
-from torchvision.models import vgg19
 import torch.onnx
-# from skimage.color import rgb2yuv, yuv2rgb
-from PIL import Image
 
 from networks import utils
 from networks.generator import GeneratorNet
@@ -69,11 +66,12 @@ def train(args):
 
     # Configurem el DataLoad
     transform = transforms.Compose([
-        transforms.Resize(args.image_size, Image.BICUBIC),
+        # transforms.Resize(args.image_size, Image.BICUBIC),
+        transforms.Resize(args.image_size),
         transforms.CenterCrop(args.image_size),
         # transforms.Lambda(lambda x: rgb2yuv(x)),
         transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         # transforms.Lambda(lambda x: x.mul(255)),
         AddGaussianNoise(0., 1.)
     ])
@@ -115,7 +113,10 @@ def train(args):
             real_features = feature_extractor(real_imgs).detach()
             perceptual_loss = l1_loss(gen_features, real_features)
             
-            loss_G = perceptual_loss + adversarial_loss
+            alpha = 1
+            # beta = 1
+            
+            loss_G = adversarial_loss + alpha*perceptual_loss #+ beta*diversity_loss
             
             loss_G.backward()
             optimizer_G.step()
@@ -124,9 +125,9 @@ def train(args):
     
             optimizer_D.zero_grad()
     
-            # Mesura de la habilitat del discriminadoe de classificar les imatges generades
-            real_loss = adversarial_loss(discriminator(real_imgs), valid)
-            fake_loss = adversarial_loss(discriminator(fake_imgs.detach()), fake)
+            # Mesura de la habilitat del discriminador de classificar les imatges generades
+            real_loss = mse_loss(discriminator(real_imgs), valid)
+            fake_loss = mse_loss(discriminator(fake_imgs.detach()), fake)
             loss_D = 0.5 * (real_loss + fake_loss)
 
 
@@ -140,18 +141,29 @@ def train(args):
     
             batches_done = e * len(train_loader) + batch_id
             if batches_done % args.log_interval == 0:
-                save_image(fake_imgs.data[:25], "/content/drive/My Drive/TFM/Generative Adversarial network/style-gan/images/%d.png" % batches_done , nrow=5, normalize=True)
+                save_image(fake_imgs.data[:25], "/content/drive/My Drive/TFM/Generative Adversarial network/Artsy-gan/images/%d.png" % batches_done , nrow=5, normalize=True)
+
+            if args.checkpoint_model_dir is not None and (batch_id + 1) % args.checkpoint_interval == 0:
+                generator.eval().cpu()
+                ckpt_model_filename = "ckpt_generator_epoch_" + str(e) + "_batch_id_" + str(batch_id + 1) + ".pth"
+                ckpt_model_path = os.path.join(args.checkpoint_model_dir, ckpt_model_filename)
+                torch.save(generator.state_dict(), ckpt_model_path)
+                generator.to(device).train()
+                
+                discriminator.eval().cpu()
+                ckpt_model_filename = "ckpt_discriminator_epoch_" + str(e) + "_batch_id_" + str(batch_id + 1) + ".pth"
+                ckpt_model_path = os.path.join(args.checkpoint_model_dir, ckpt_model_filename)
+                torch.save(discriminator.state_dict(), ckpt_model_path)
+                discriminator.to(device).train()
 
     # save model
     generator.eval().cpu()
-    save_model_filename = "generator_epoch_" + str(args.epochs) + "_" + str(time.ctime()).replace(' ', '_') + "_" + str(
-        args.content_weight) + "_" + str(args.style_weight) + ".model"
+    save_model_filename = "generator_epoch_" + str(args.epochs) + "_" + str(time.ctime()).replace(' ', '_') + ".pth"
     save_model_path = os.path.join(args.save_model_dir, save_model_filename)
     torch.save(generator.state_dict(), save_model_path)
     
     discriminator.eval().cpu()
-    save_model_filename = "discriminator_epoch_" + str(args.epochs) + "_" + str(time.ctime()).replace(' ', '_') + "_" + str(
-        args.content_weight) + "_" + str(args.style_weight) + ".model"
+    save_model_filename = "discriminator_epoch_" + str(args.epochs) + "_" + str(time.ctime()).replace(' ', '_') + ".pth"
     save_model_path = os.path.join(args.save_model_dir, save_model_filename)
     torch.save(generator.state_dict(), save_model_path)
 
@@ -173,7 +185,7 @@ def stylize(args):
         output = stylize_onnx_caffe2(content_image, args)
     else:
         with torch.no_grad():
-            style_model = TransformerNet()
+            style_model = GeneratorNet().to(device)
             state_dict = torch.load(args.model)
             # remove saved deprecated running_* keys in InstanceNorm from the checkpoint
             for k in list(state_dict.keys()):
@@ -229,17 +241,13 @@ def main():
                                   help="set it to 1 for running on GPU, 0 for CPU")
     train_arg_parser.add_argument("--seed", type=int, default=42,
                                   help="random seed for training")
-    train_arg_parser.add_argument("--content-weight", type=float, default=1e5,
-                                  help="weight for content-loss, default is 1e5")
-    train_arg_parser.add_argument("--style-weight", type=float, default=1e10,
-                                  help="weight for style-loss, default is 1e10")
     train_arg_parser.add_argument("--lr", type=float, default=1e-3,
                                   help="learning rate, default is 1e-3")
-    train_arg_parser.add_argument("--log-interval", type=int, default=20,
+    train_arg_parser.add_argument("--log-interval", type=int, default=500,
                                   help="number of images after which the training loss is logged, default is 500")
-    train_arg_parser.add_argument("--checkpoint-interval", type=int, default=2000,
+    train_arg_parser.add_argument("--checkpoint-interval", type=int, default=500,
                                   help="number of batches after which a checkpoint of the trained model will be created")
-    train_arg_parser.add_argument("--latent_dim", type=int, default=100, help="dimensionality of the latent space")
+    # train_arg_parser.add_argument("--latent_dim", type=int, default=100, help="dimensionality of the latent space")
 
     eval_arg_parser = subparsers.add_parser("eval", help="parser for evaluation/stylizing arguments")
     eval_arg_parser.add_argument("--content-image", type=str, required=True,
