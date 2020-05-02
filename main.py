@@ -56,7 +56,7 @@ def train(args):
     mse_loss = torch.nn.MSELoss().to(device)
     l1_loss = torch.nn.L1Loss().to(device)
 
-    # Inicialitzem el generador i el descriminadro
+    # Inicialitzem el generador i el descriminador
     generator = GeneratorNet().to(device)
     discriminator = DiscriminatorNet().to(device)
     feature_extractor = FeatureExtractor().to(device)
@@ -72,7 +72,7 @@ def train(args):
         # transforms.Lambda(lambda x: rgb2yuv(x)),
         transforms.ToTensor(),
         # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        # transforms.Lambda(lambda x: x.mul(255)),
+        transforms.Lambda(lambda x: x.mul(255)),
         AddGaussianNoise(0., 1.)
     ])
     train_dataset = datasets.ImageFolder(args.dataset, transform)
@@ -101,8 +101,6 @@ def train(args):
             
             optimizer_G.zero_grad()
 
-            # Generem un batch d'images
-            # x = x.to(device)
             fake_imgs = generator(real_imgs)
 
             # Pèrdua que mesura la capacitat del generador per enganyar el discriminador
@@ -187,7 +185,6 @@ def stylize(args):
         with torch.no_grad():
             style_model = GeneratorNet().to(device)
             state_dict = torch.load(args.model)
-            # remove saved deprecated running_* keys in InstanceNorm from the checkpoint
             for k in list(state_dict.keys()):
                 if re.search(r'in\d+\.running_(mean|var)$', k):
                     del state_dict[k]
