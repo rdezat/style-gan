@@ -11,21 +11,23 @@ import time
 import re
 
 import numpy as np
+from matplotlib import pyplot
 import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torchvision import datasets
 from torchvision import transforms
 from torchvision.utils import save_image
+from torch.autograd import Variable
 import torch.onnx
 
 from networks import utils
 from networks.generator import GeneratorNet
 from networks.discriminator import DiscriminatorNet
 from networks.encoder import FeatureExtractor
-from torch.autograd import Variable
 
-
+# Funció que chequeja la existencia de les carpetes on es desen el models
+# tan de checkpoint com final. En el cas de no existir, les crea
 def check_paths(args):
     try:
         if not os.path.exists(args.save_model_dir):
@@ -36,6 +38,7 @@ def check_paths(args):
         print(e)
         sys.exit(1)
 
+# Classe que afegeix soroll gaussià a una imatge. Per defecte desviació 1 i mitjana 0
 class AddGaussianNoise(object):
     def __init__(self, mean=0., std=1.):
         self.std = std
@@ -47,12 +50,34 @@ class AddGaussianNoise(object):
     def __repr__(self):
         return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
 
-def train(args):
-    device = torch.device("cuda" if args.cuda else "cpu")
+# Funció per crear un gràfic amb la evolució de les pèrdues
+def plot_history(d1_hist, d2_hist, g1_hist, g2_hist, g3_hist):
+    # plot loss
+    pyplot.subplot(5, 1, 1)
+    pyplot.plot(d1_hist, label='d-real')
+    pyplot.subplot(5, 1, 2)
+    pyplot.plot(d2_hist, label='d-fake')
+    pyplot.subplot(5, 1, 3)
+    pyplot.plot(g1_hist, label='g-adversarial')
+    pyplot.subplot(5, 1, 4)
+    pyplot.plot(g2_hist, label='g-perceptual')
+    pyplot.subplot(5, 1, 5)
+    pyplot.plot(g3_hist, label='g-diversity')
+    pyplot.legend()
+    # save plot to file
+    # pyplot.savefig('results_opt/plot_line_plot_loss.png')
+    pyplot.savefig('plot_line_plot_loss.png')
+    pyplot.close()
 
+# Funció d'entrenament del model de transferència d'estil
+def train(args):
+    # Inicialitzem la unitat de processament seleccionada
+    device = torch.device("cuda" if args.cuda else "cpu")
+    
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
+    # Definim les pèrdues definides en l'entrenament
     mse_loss = torch.nn.MSELoss().to(device)
     l1_loss = torch.nn.L1Loss().to(device)
 
@@ -60,67 +85,119 @@ def train(args):
     generator = GeneratorNet().to(device)
     discriminator = DiscriminatorNet().to(device)
     feature_extractor = FeatureExtractor().to(device)
+    
+    if args.epoch != 0:
+        # Load pretrained models
+        generator.load_state_dict(torch.load("models/%s/generator_%d.pth" % (args.dataset_name, args.epoch)))
+        discriminator.load_state_dict(torch.load("models/%s/discriminator_%d.pth" % (args.dataset_name, args.epoch)))
+    else:
+        # Initialize weights
+        generator.apply(utils.weights_init_normal)
+        discriminator.apply(utils.weights_init_normal)
 
-    # Set feature extractor to inference mode
+    #  Es posa l'extractor de característiques en mode d'inferència
     feature_extractor.eval()
 
-    # Configurem el DataLoad
+    # Configurem les següents transformacions:
+        # Redimensionem les imatges amb el paràmetre d'entrada image_size
+        # Retallem el centre de la imatges amb la mida anterior
+        # Convertim la imatges d'entrada en un Tensor
+        # Multipliquem cada element del tensor per 255
     transform = transforms.Compose([
-        # transforms.Resize(args.image_size, Image.BICUBIC),
         transforms.Resize(args.image_size),
         transforms.CenterCrop(args.image_size),
-        # transforms.Lambda(lambda x: rgb2yuv(x)),
         transforms.ToTensor(),
-        # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         transforms.Lambda(lambda x: x.mul(255)),
-        AddGaussianNoise(0., 1.)
     ])
+    
+    # Carreguem les imatges en la carpeta dataset i apliquem les transformacions
     train_dataset = datasets.ImageFolder(args.dataset, transform)
+    # Creem un iterable soble el conjunt d'imatges amb un batch definit per paràmetre 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size)
 
     # Configurem els optimitzadors
-    optimizer_G = Adam(generator.parameters(), args.lr)
-    optimizer_D = Adam(discriminator.parameters(), args.lr)
+    optimizer_G = Adam(generator.parameters(), args.lr, betas=(args.b1, args.b2))
+    optimizer_D = Adam(discriminator.parameters(), args.lr, betas=(args.b1, args.b2))
+    
+    # Programadors d’actualització de les taxes d’aprenentatge
+    lr_scheduler_G = torch.optim.lr_scheduler.LambdaLR(
+        optimizer_G, lr_lambda=utils.LambdaLR(args.n_epochs, args.epoch, args.decay_epoch).step
+    )
+    lr_scheduler_D = torch.optim.lr_scheduler.LambdaLR(
+        optimizer_D, lr_lambda=utils.LambdaLR(args.n_epochs, args.epoch, args.decay_epoch).step
+    )
     
     Tensor = torch.cuda.FloatTensor if device.type == "cuda" else torch.FloatTensor
     
+    # Preparem les llistes per emmagatzemar les estadístiques de cada iteració
+    d1_hist, d2_hist, g1_hist, g2_hist, g3_hist = list(), list(), list(), list(), list()
+   
     # Entrenament
-    
-    for e in range(args.epochs):
+    # Per cada epoch
+    for epoch in range(args.epoch, args.n_epochs):
+        # Per cada batch del Data loader
         for batch_id, (x, _) in enumerate(train_loader):
-            
-            # Configure input
+            # Preparem el batch d'entrada amb un "embolcall" en Variables
             real_imgs = Variable(x.type(Tensor))
-
-            # Adversarial ground truths
+            real_imgs_perceptual = Variable(x.type(Tensor))
+            # Afegim un soroll gaussià al batch d'entrada
+            z = Variable(AddGaussianNoise(0,1).__call__(x).type(Tensor))
+            # Creem un altre tensor amb un altre soroll gaussià al batch d'entrada
+            z_2 = Variable(AddGaussianNoise(0,1).__call__(x).type(Tensor))
+            
+            # Creem les veritat fonamentals adversarials
             valid = Variable(Tensor(np.ones((real_imgs.size(0), *discriminator.output_shape))), requires_grad=False)
             fake = Variable(Tensor(np.zeros((real_imgs.size(0), *discriminator.output_shape))), requires_grad=False)
-
-            # Entrenament del Generador
-            generator.train()
             
+            #############################
+            #   Entrenem el Generador   #
+            #############################
+            
+            generator.train()
+
+            # Inicialitzem l'optimitzador del generador
             optimizer_G.zero_grad()
-
+            
+            # Passem el batch d'entrada pel generador
             fake_imgs = generator(real_imgs)
-
+            fake_imgs_perceptual = generator(real_imgs)
+            
+            # CALCULEM LA PÈRDUA ADVERSARIAL
             # Pèrdua que mesura la capacitat del generador per enganyar el discriminador
             adversarial_loss = mse_loss(discriminator(fake_imgs), valid)             
             
-            # Perceptual loss
-            gen_features = feature_extractor(fake_imgs)
-            real_features = feature_extractor(real_imgs).detach()
-            perceptual_loss = l1_loss(gen_features, real_features)
+            # CALCULEM LA PÈRDUA PERCEPTUAL
+            # Extraiem les característiques del batch generat pel generador
+            gen_features = feature_extractor(utils.normalize_batch(fake_imgs_perceptual))
+            # Extraiem les característiques del batch d'entrada
+            real_features = feature_extractor(utils.normalize_batch(real_imgs_perceptual))
+            # Calculem la pèrdua de contingut 
+            perceptual_loss = args.content_weight * mse_loss(gen_features.relu2_2, real_features.relu2_2)
+
+            # CALCULEM LA PÈRDUA DE DIVERSITAT
+            # Generem un batch a partir del primer batch amb soroll
+            fake_diversity = generator(z)
+            # Generem un batch a partit del segon batch amb soroll
+            fake_diversity_2 = generator(z_2)
+            # Calculem la pèrdua de diversitat
+            diversity_loss = 0.5 * torch.reciprocal(l1_loss(fake_diversity, fake_diversity_2))
             
-            alpha = 1
-            # beta = 1
+            # Definim els pesoso de les peerdues percetuals i de diversitat
+            alpha = 1e-2
+            beta = 1e-2
             
-            loss_G = adversarial_loss + alpha*perceptual_loss #+ beta*diversity_loss
+            # Sumem per obtenir la pèrdua total del generador
+            loss_G = adversarial_loss + alpha*perceptual_loss + beta*diversity_loss
             
+            # Computem els gradients
             loss_G.backward()
             optimizer_G.step()
 
-            #  Entrenament del Discriminador
-    
+            #################################
+            #   Entrenem el Discriminador   #
+            #################################
+            
+            # Inicialitzem l'optimitzador del generador
             optimizer_D.zero_grad()
     
             # Mesura de la habilitat del discriminador de classificar les imatges generades
@@ -128,19 +205,31 @@ def train(args):
             fake_loss = mse_loss(discriminator(fake_imgs.detach()), fake)
             loss_D = 0.5 * (real_loss + fake_loss)
 
-
+            # Computem els gradients
             loss_D.backward()
             optimizer_D.step()
-    
+            
+            # Desem la historia de pèrdues
+            d1_hist.append(real_loss)
+            d2_hist.append(fake_loss)
+            g1_hist.append(adversarial_loss)
+            g2_hist.append(perceptual_loss)
+            g3_hist.append(diversity_loss)
+
+            # Escrivim per consola l'epoch i el batch_id executats, i les pèrdues totals
             print(
                 "[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f]"
-                % (e, args.epochs, batch_id, len(train_loader), loss_D.item(), loss_G.item())
+                % (e, args.n_epochs, batch_id, len(train_loader), loss_D.item(), loss_G.item())
             )
-    
+            
+            # Desem la imatge generada cada interval de epoch especificat per paràmetre
             batches_done = e * len(train_loader) + batch_id
             if batches_done % args.log_interval == 0:
-                save_image(fake_imgs.data[:25], "/content/drive/My Drive/TFM/Generative Adversarial network/Artsy-gan/images/%d.png" % batches_done , nrow=5, normalize=True)
+                # save_image(fake_imgs.data[:25], "/content/drive/My Drive/TFM/Generative Adversarial network/Artsy-gan/images/%d.png" % batches_done , nrow=5, normalize=True)
+                save_image(fake_imgs.data[:25], "images/%d.png" % batches_done , nrow=5, normalize=True)
 
+            # Desem un checkpoint del geneerador i del discriminador en mode avaluació
+            # cada interval de epoch especificat per paràmetre
             if args.checkpoint_model_dir is not None and (batch_id + 1) % args.checkpoint_interval == 0:
                 generator.eval().cpu()
                 ckpt_model_filename = "ckpt_generator_epoch_" + str(e) + "_batch_id_" + str(batch_id + 1) + ".pth"
@@ -154,17 +243,26 @@ def train(args):
                 torch.save(discriminator.state_dict(), ckpt_model_path)
                 discriminator.to(device).train()
 
-    # save model
+        # S'actualitza la taxa d'aprenentatge
+        lr_scheduler_G.step()
+        lr_scheduler_D.step()
+
+    # Desem el generador creat
     generator.eval().cpu()
-    save_model_filename = "generator_epoch_" + str(args.epochs) + "_" + str(time.ctime()).replace(' ', '_') + ".pth"
+    save_model_filename = "generator_epoch_" + str(args.n_epochs) + "_" + str(args.dataset_name) + ".pth"
     save_model_path = os.path.join(args.save_model_dir, save_model_filename)
     torch.save(generator.state_dict(), save_model_path)
     
-    discriminator.eval().cpu()
-    save_model_filename = "discriminator_epoch_" + str(args.epochs) + "_" + str(time.ctime()).replace(' ', '_') + ".pth"
-    save_model_path = os.path.join(args.save_model_dir, save_model_filename)
-    torch.save(generator.state_dict(), save_model_path)
-
+    # Desem el discriminador creat
+    # discriminator.eval().cpu()
+    # save_model_filename = "discriminator_epoch_" + str(args.epochs) + "_" + str(time.ctime()).replace(' ', '_') + ".pth"
+    # save_model_path = os.path.join(args.save_model_dir, save_model_filename)
+    # torch.save(generator.state_dict(), save_model_path)
+    
+    # Grafiquem la història de pèrdues
+    plot_history(d1_hist, d2_hist, g1_hist, g2_hist, g3_hist)
+    
+    # Final de l'entrenament
     print("\nDone, trained model saved at", save_model_path)
 
 
@@ -179,52 +277,28 @@ def stylize(args):
     content_image = content_transform(content_image)
     content_image = content_image.unsqueeze(0).to(device)
 
-    if args.model.endswith(".onnx"):
-        output = stylize_onnx_caffe2(content_image, args)
-    else:
-        with torch.no_grad():
-            style_model = GeneratorNet().to(device)
-            state_dict = torch.load(args.model)
-            for k in list(state_dict.keys()):
-                if re.search(r'in\d+\.running_(mean|var)$', k):
-                    del state_dict[k]
-            style_model.load_state_dict(state_dict)
-            style_model.to(device)
-            if args.export_onnx:
-                assert args.export_onnx.endswith(".onnx"), "Export model file should end with .onnx"
-                output = torch.onnx._export(style_model, content_image, args.export_onnx).cpu()
-            else:
-                output = style_model(content_image).cpu()
+    with torch.no_grad():
+        style_model = GeneratorNet().to(device)
+        state_dict = torch.load(args.model)
+        for k in list(state_dict.keys()):
+            if re.search(r'in\d+\.running_(mean|var)$', k):
+                del state_dict[k]
+        style_model.load_state_dict(state_dict)
+        style_model.to(device)
+        output = style_model(content_image).cpu()
+        
     utils.save_image(args.output_image, output[0])
-
-
-def stylize_onnx_caffe2(content_image, args):
-    """
-    Read ONNX model and run it using Caffe2
-    """
-
-    assert not args.export_onnx
-
-    import onnx
-    import onnx_caffe2.backend
-
-    model = onnx.load(args.model)
-
-    prepared_backend = onnx_caffe2.backend.prepare(model, device='CUDA' if args.cuda else 'CPU')
-    inp = {model.graph.input[0].name: content_image.numpy()}
-    c2_out = prepared_backend.run(inp)[0]
-
-    return torch.from_numpy(c2_out)
 
 def main():
     main_arg_parser = argparse.ArgumentParser(description="parser for Artsy-GAN")
     subparsers = main_arg_parser.add_subparsers(title="subcommands", dest="subcommand")
 
     train_arg_parser = subparsers.add_parser("train", help="parser for training arguments")
-    train_arg_parser.add_argument("--epochs", type=int, default=200,
-                                  help="number of training epochs, default is 2")
+    train_arg_parser.add_argument("--n_epochs", type=int, default=200,
+                                  help="number of training epochs, default is 200")
+    train_arg_parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
     train_arg_parser.add_argument("--batch-size", type=int, default=1,
-                                  help="batch size for training, default is 4")
+                                  help="batch size for training, default is 1")
     train_arg_parser.add_argument("--dataset", type=str, required=True,
                                   help="path to training dataset, the path should point to a folder "
                                        "containing another folder with all the training images")
@@ -238,13 +312,18 @@ def main():
                                   help="set it to 1 for running on GPU, 0 for CPU")
     train_arg_parser.add_argument("--seed", type=int, default=42,
                                   help="random seed for training")
-    train_arg_parser.add_argument("--lr", type=float, default=1e-3,
-                                  help="learning rate, default is 1e-3")
-    train_arg_parser.add_argument("--log-interval", type=int, default=500,
-                                  help="number of images after which the training loss is logged, default is 500")
-    train_arg_parser.add_argument("--checkpoint-interval", type=int, default=500,
+    train_arg_parser.add_argument("--lr", type=float, default=2e-4,
+                                  help="learning rate, default is 2e-4")
+    train_arg_parser.add_argument("--b1", type=float, default=0.5, help="adam: decay of first order momentum of gradient")
+    train_arg_parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
+    train_arg_parser.add_argument("--decay_epoch", type=int, default=100, help="epoch from which to start lr decay")
+    train_arg_parser.add_argument("--log-interval", type=int, default=5000,
+                                  help="number of images after which the training loss is logged, default is 5000")
+    train_arg_parser.add_argument("--checkpoint-interval", type=int, default=5000,
                                   help="number of batches after which a checkpoint of the trained model will be created")
-    # train_arg_parser.add_argument("--latent_dim", type=int, default=100, help="dimensionality of the latent space")
+    train_arg_parser.add_argument("--latent_dim", type=int, default=100, help="dimensionality of the latent space")
+    train_arg_parser.add_argument("--content-weight", type=float, default=1,
+                                  help="weight for content-loss, default is 1")
 
     eval_arg_parser = subparsers.add_parser("eval", help="parser for evaluation/stylizing arguments")
     eval_arg_parser.add_argument("--content-image", type=str, required=True,
