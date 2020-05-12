@@ -1,7 +1,6 @@
 import torch
 import torchvision
 
-
 class GeneratorNet(torch.nn.Module):
     def __init__(self):
         super(GeneratorNet, self).__init__()

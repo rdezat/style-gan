@@ -30,8 +30,8 @@ from networks.encoder import FeatureExtractor
 # tan de checkpoint com final. En el cas de no existir, les crea
 def check_paths(args):
     try:
-        if not os.path.exists(args.save_model_dir):
-            os.makedirs(args.save_model_dir)
+        if not os.path.exists(args.save_model_dir + args.dataset_name):
+            os.makedirs(args.save_model_dir + args.dataset_name)
         if args.checkpoint_model_dir is not None and not (os.path.exists(args.checkpoint_model_dir)):
             os.makedirs(args.checkpoint_model_dir)
     except OSError as e:
@@ -55,15 +55,20 @@ def plot_history(d1_hist, d2_hist, g1_hist, g2_hist, g3_hist):
     # plot loss
     pyplot.subplot(5, 1, 1)
     pyplot.plot(d1_hist, label='d-real')
+    pyplot.legend()
     pyplot.subplot(5, 1, 2)
     pyplot.plot(d2_hist, label='d-fake')
+    pyplot.legend()
     pyplot.subplot(5, 1, 3)
     pyplot.plot(g1_hist, label='g-adversarial')
+    pyplot.legend()
     pyplot.subplot(5, 1, 4)
     pyplot.plot(g2_hist, label='g-perceptual')
+    pyplot.legend()
     pyplot.subplot(5, 1, 5)
     pyplot.plot(g3_hist, label='g-diversity')
     pyplot.legend()
+    
     # save plot to file
     # pyplot.savefig('results_opt/plot_line_plot_loss.png')
     pyplot.savefig('plot_line_plot_loss.png')
@@ -88,12 +93,8 @@ def train(args):
     
     if args.epoch != 0:
         # Load pretrained models
-        generator.load_state_dict(torch.load("models/%s/generator_%d.pth" % (args.dataset_name, args.epoch)))
-        discriminator.load_state_dict(torch.load("models/%s/discriminator_%d.pth" % (args.dataset_name, args.epoch)))
-    else:
-        # Initialize weights
-        generator.apply(utils.weights_init_normal)
-        discriminator.apply(utils.weights_init_normal)
+        generator.load_state_dict(torch.load("models/%s/generator_epoch_%d.pth" % (args.dataset_name, args.epoch)))
+        discriminator.load_state_dict(torch.load("models/%s/discriminator_epoch_%d.pth" % (args.dataset_name, args.epoch)))
 
     #  Es posa l'extractor de característiques en mode d'inferència
     feature_extractor.eval()
@@ -139,11 +140,6 @@ def train(args):
         for batch_id, (x, _) in enumerate(train_loader):
             # Preparem el batch d'entrada amb un "embolcall" en Variables
             real_imgs = Variable(x.type(Tensor))
-            real_imgs_perceptual = Variable(x.type(Tensor))
-            # Afegim un soroll gaussià al batch d'entrada
-            z = Variable(AddGaussianNoise(0,1).__call__(x).type(Tensor))
-            # Creem un altre tensor amb un altre soroll gaussià al batch d'entrada
-            z_2 = Variable(AddGaussianNoise(0,1).__call__(x).type(Tensor))
             
             # Creem les veritat fonamentals adversarials
             valid = Variable(Tensor(np.ones((real_imgs.size(0), *discriminator.output_shape))), requires_grad=False)
@@ -160,21 +156,28 @@ def train(args):
             
             # Passem el batch d'entrada pel generador
             fake_imgs = generator(real_imgs)
-            fake_imgs_perceptual = generator(real_imgs)
             
             # CALCULEM LA PÈRDUA ADVERSARIAL
             # Pèrdua que mesura la capacitat del generador per enganyar el discriminador
             adversarial_loss = mse_loss(discriminator(fake_imgs), valid)             
             
             # CALCULEM LA PÈRDUA PERCEPTUAL
+            # Generem el batch per calcular la pèrdua
+            fake_imgs_perceptual = generator(real_imgs)
             # Extraiem les característiques del batch generat pel generador
             gen_features = feature_extractor(utils.normalize_batch(fake_imgs_perceptual))
+            # Preparem el batch d'entrada amb un "embolcall" en Variables
+            real_imgs_perceptual = Variable(x.type(Tensor))
             # Extraiem les característiques del batch d'entrada
             real_features = feature_extractor(utils.normalize_batch(real_imgs_perceptual))
             # Calculem la pèrdua de contingut 
             perceptual_loss = args.content_weight * mse_loss(gen_features.relu2_2, real_features.relu2_2)
 
             # CALCULEM LA PÈRDUA DE DIVERSITAT
+            # Afegim un soroll gaussià al batch d'entrada
+            z = Variable(AddGaussianNoise(0,1).__call__(x).type(Tensor))
+            # Creem un altre tensor amb un altre soroll gaussià al batch d'entrada
+            z_2 = Variable(AddGaussianNoise(0,1).__call__(x).type(Tensor))
             # Generem un batch a partir del primer batch amb soroll
             fake_diversity = generator(z)
             # Generem un batch a partit del segon batch amb soroll
@@ -219,11 +222,11 @@ def train(args):
             # Escrivim per consola l'epoch i el batch_id executats, i les pèrdues totals
             print(
                 "[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f]"
-                % (e, args.n_epochs, batch_id, len(train_loader), loss_D.item(), loss_G.item())
+                % (epoch, args.n_epochs, batch_id, len(train_loader), loss_D.item(), loss_G.item())
             )
             
             # Desem la imatge generada cada interval de epoch especificat per paràmetre
-            batches_done = e * len(train_loader) + batch_id
+            batches_done = epoch * len(train_loader) + batch_id
             if batches_done % args.log_interval == 0:
                 # save_image(fake_imgs.data[:25], "/content/drive/My Drive/TFM/Generative Adversarial network/Artsy-gan/images/%d.png" % batches_done , nrow=5, normalize=True)
                 save_image(fake_imgs.data[:25], "images/%d.png" % batches_done , nrow=5, normalize=True)
@@ -232,13 +235,13 @@ def train(args):
             # cada interval de epoch especificat per paràmetre
             if args.checkpoint_model_dir is not None and (batch_id + 1) % args.checkpoint_interval == 0:
                 generator.eval().cpu()
-                ckpt_model_filename = "ckpt_generator_epoch_" + str(e) + "_batch_id_" + str(batch_id + 1) + ".pth"
+                ckpt_model_filename = "ckpt_generator_epoch_" + str(epoch) + "_batch_id_" + str(batch_id + 1) + ".pth"
                 ckpt_model_path = os.path.join(args.checkpoint_model_dir, ckpt_model_filename)
                 torch.save(generator.state_dict(), ckpt_model_path)
                 generator.to(device).train()
                 
                 discriminator.eval().cpu()
-                ckpt_model_filename = "ckpt_discriminator_epoch_" + str(e) + "_batch_id_" + str(batch_id + 1) + ".pth"
+                ckpt_model_filename = "ckpt_discriminator_epoch_" + str(epoch) + "_batch_id_" + str(batch_id + 1) + ".pth"
                 ckpt_model_path = os.path.join(args.checkpoint_model_dir, ckpt_model_filename)
                 torch.save(discriminator.state_dict(), ckpt_model_path)
                 discriminator.to(device).train()
@@ -249,15 +252,15 @@ def train(args):
 
     # Desem el generador creat
     generator.eval().cpu()
-    save_model_filename = "generator_epoch_" + str(args.n_epochs) + "_" + str(args.dataset_name) + ".pth"
-    save_model_path = os.path.join(args.save_model_dir, save_model_filename)
+    save_model_filename = "generator_epoch_" + str(args.n_epochs) + ".pth"
+    save_model_path = os.path.join(args.save_model_dir, args.dataset_name, save_model_filename)
     torch.save(generator.state_dict(), save_model_path)
     
     # Desem el discriminador creat
-    # discriminator.eval().cpu()
-    # save_model_filename = "discriminator_epoch_" + str(args.epochs) + "_" + str(time.ctime()).replace(' ', '_') + ".pth"
-    # save_model_path = os.path.join(args.save_model_dir, save_model_filename)
-    # torch.save(generator.state_dict(), save_model_path)
+    discriminator.eval().cpu()
+    save_model_filename = "discriminator_epoch_" + str(args.n_epochs) + ".pth"
+    save_model_path = os.path.join(args.save_model_dir, save_model_filename)
+    torch.save(generator.state_dict(), save_model_path)
     
     # Grafiquem la història de pèrdues
     plot_history(d1_hist, d2_hist, g1_hist, g2_hist, g3_hist)
@@ -302,6 +305,7 @@ def main():
     train_arg_parser.add_argument("--dataset", type=str, required=True,
                                   help="path to training dataset, the path should point to a folder "
                                        "containing another folder with all the training images")
+    train_arg_parser.add_argument("--dataset_name", type=str, required=True)
     train_arg_parser.add_argument("--save-model-dir", type=str, required=True,
                                   help="path to folder where trained model will be saved.")
     train_arg_parser.add_argument("--checkpoint-model-dir", type=str, default=None,
