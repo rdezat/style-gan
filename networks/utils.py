@@ -1,4 +1,5 @@
 import torch
+from torch.autograd import Variable
 from PIL import Image
 
 
@@ -10,8 +11,16 @@ def load_image(filename, size=None, scale=None):
         img = img.resize((int(img.size[0] / scale), int(img.size[1] / scale)), Image.ANTIALIAS)
     return img
 
+def yuv_to_rgb(input):
+    # input is mini-batch N x 3 x H x W of an RGB image
+    output = Variable(input.data.new(*input.size()))
+    output[0, :, :] = input[0, :, :] + input[2, :, :] * 1.14
+    output[1, :, :] = input[0, :, :] - input[1, :, :] * 0.396 - input[2, :, :] * 0.581
+    output[2, :, :] = input[0, :, :] + input[1, :, :] * 2.029
+    return output
 
 def save_image(filename, data):
+    #data = yuv_to_rgb(data)
     img = data.clone().clamp(0, 255).numpy()
     img = img.transpose(1, 2, 0).astype("uint8")
     img = Image.fromarray(img)
