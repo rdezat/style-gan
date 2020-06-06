@@ -33,20 +33,20 @@ Per tal d'utilitzar l'API de WikiArt, s'ha implementat el codi datasets.py ubica
 ## Entrenament
 
 Pel tal d'entrenar el model, s'executa els arxius main.py o main_wchr.py amb els següents paràmetres:
-* `--n_epochs´: Nombre de èpques d'entrenament, per defecte 200.
-* `--epoch´: Època en que comença l'entrenament, per defecte 0.
-* `--batch-size´: Mida del batch d'entrenament, per defecte 1.
-* `--dataset´: Ruta de la carpeta que conté el conjunt d'entrenament. Obligatori.
-* `--dataset_name´: Nom del tipus de conjunt d'entrenament. Obligatori.
-* `--save-model-dir´: Ruta a la carpeta on es desarà el model entrenat. Obligatori.
-* `--image-size´: Mida de les imatges d'entrenament, per defecte 256.
-* `--cuda´: Runtime utilitzat en l'entreanment. S'informa 1 per executar sobre GPU, 0 per CPU. Obligatori.
-* `--seed´: Semilla aleatòria per l'entrenament, per defecte 42.
-* `--lr´: Taxa d'aprenentatge, per defecte 2e-4")
-* `--b1´: En l'optimitzador, decaïment del moment de gradien de primer ordre, per defecte 0.5
-* `--b2´: En l'optimitzador, decaïment del moment de gradien de primer ordre, per defecte 0.999
-* `--decay_epoch´: Època en la qual comença el decaïment de la taxa d'aprenentatge, per defecte 100.
-* `--content-weight´: Pes de la pèrdua de contingut, per defecte 1.
+* `--n_epochs`: Nombre de èpques d'entrenament, per defecte 200.
+* `--epoch`: Època en que comença l'entrenament, per defecte 0.
+* `--batch-size`: Mida del batch d'entrenament, per defecte 1.
+* `--dataset`: Ruta de la carpeta que conté el conjunt d'entrenament. Obligatori.
+* `--dataset_name`: Nom del tipus de conjunt d'entrenament. Obligatori.
+* `--save-model-dir`: Ruta a la carpeta on es desarà el model entrenat. Obligatori.
+* `--image-size`: Mida de les imatges d'entrenament, per defecte 256.
+* `--cuda`: Runtime utilitzat en l'entreanment. S'informa 1 per executar sobre GPU, 0 per CPU. Obligatori.
+* `--seed`: Semilla aleatòria per l'entrenament, per defecte 42.
+* `--lr`: Taxa d'aprenentatge, per defecte 2e-4")
+* `--b1`: En l'optimitzador, decaïment del moment de gradien de primer ordre, per defecte 0.5
+* `--b2`: En l'optimitzador, decaïment del moment de gradien de primer ordre, per defecte 0.999
+* `--decay_epoch`: Època en la qual comença el decaïment de la taxa d'aprenentatge, per defecte 100.
+* `--content-weight`: Pes de la pèrdua de contingut, per defecte 1.
 
 La diferència entre main.py i main_wchr.py, radica en l'estructura del generador utilitzat. Com s'explica més endavant, l'arxiu main.py utilitza la estructura descrita a l'arxiu generator.py, mentre que, l'arxiu main_wchr.py utilitza la estructura descrita a l'arxiu generator_wchr.py
 
@@ -107,11 +107,11 @@ Es defineixen 3 funcions de pèrdua: pèrdua adversarial, pèrdua perceptiva i p
 
 #### Pèrdua adversarial
 
-S’aplica pèrdues adversarials de mínims quadrats de la GAN a la funció de mapeig G:{x,z} → y i al seu discriminador.
+S’aplica pèrdues adversarials de mínims quadrats de la GAN a la funció de mapeig $G:{x,z} → y$ i al seu discriminador.
 
 L’objectiu del generador és:
 
-L_GAN = E_(x~p_data (x)) [(D(G(x,z))-L_real )^2 ]
+$L_{GAN} = E_{x~p_{data}(x)} [(D(G(x,z))-L_{real})^2]$
 
 on z és el tensor del soroll, L_real és l’etiqueta per les dades reals. G tendeix a produir imatges G(x,z) que s’assemblin a les imatges del domini Y. La pèrdua adversarial aplicada al generador s’implementa de la següent forma:
 
