@@ -22,7 +22,7 @@ from torch.autograd import Variable
 import torch.onnx
 
 from networks import utils
-from networks.generator import GeneratorNet
+from networks.generator_wchr import GeneratorNet
 from networks.discriminator import DiscriminatorNet
 from networks.encoder import FeatureExtractor
 
@@ -68,8 +68,8 @@ def plot_history(d1_hist, g1_hist, g2_hist, g3_hist, g4_hist):
     pyplot.legend()
     
     # save plot to file
-    # pyplot.savefig('results_opt/plot_line_plot_loss.png')
-    pyplot.savefig('/content/drive/My Drive/TFM/Generative Adversarial network/Artsy-gan/results_opt/plot_line_plot_loss.png')
+    # pyplot.savefig('results_opt/plot_line_plot_loss_wchr.png')
+    pyplot.savefig('/content/drive/My Drive/TFM/Generative Adversarial network/Artsy-gan/results_opt/plot_line_plot_loss_wchr.png')
     pyplot.close()
 
 # Funció d'entrenament del model de transferència d'estil
@@ -91,10 +91,10 @@ def train(args):
     
     if args.epoch != 0:
         # Load pretrained models
-        generator.load_state_dict(torch.load("models/%s/generator_epoch_%d.pth" % (args.dataset_name, args.epoch), map_location=device))
-        discriminator.load_state_dict(torch.load("models/%s/discriminator_epoch_%d.pth" % (args.dataset_name, args.epoch), map_location=device)['model_state_dict'])
-        # generator.load_state_dict(torch.load("/content/drive/My Drive/TFM/Generative Adversarial network/Artsy-gan/models/%s/%d" % (args.dataset_name, args.model_name)))
-        # discriminator.load_state_dict(torch.load("/content/drive/My Drive/TFM/Generative Adversarial network/Artsy-gan/models/%s/%d" % (args.dataset_name, args.model_name)))
+        generator.load_state_dict(torch.load("models/%s/generator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch), map_location=device))
+        discriminator.load_state_dict(torch.load("models/%s/discriminator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch), map_location=device)['model_state_dict'])
+        # generator.load_state_dict(torch.load("/content/drive/My Drive/TFM/Generative Adversarial network/Artsy-gan/models/%s/generator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch)))
+        # discriminator.load_state_dict(torch.load("/content/drive/My Drive/TFM/Generative Adversarial network/Artsy-gan/models/%s/discriminator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch)))
 
     #  Es posa l'extractor de característiques en mode d'inferència
     feature_extractor.eval()
@@ -109,7 +109,7 @@ def train(args):
         transforms.CenterCrop(args.image_size),
         transforms.ToTensor(),
         #transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        transforms.Lambda(lambda x: x.mul(255)),
+        #transforms.Lambda(lambda x: x.mul(255)),
     ])
     
     # Carreguem les imatges en la carpeta dataset i apliquem les transformacions
@@ -160,17 +160,17 @@ def train(args):
             
             # CALCULEM LA PÈRDUA ADVERSARIAL
             # Pèrdua que mesura la capacitat del generador per enganyar el discriminador
-            adversarial_loss = mse_loss(discriminator(fake_imgs.type(Tensor)), valid)             
+            adversarial_loss = mse_loss(discriminator(fake_imgs), valid)             
             
             # CALCULEM LA PÈRDUA PERCEPTUAL
             # Generem el batch per calcular la pèrdua
             fake_imgs_perceptual = generator(real_imgs)
             # Extraiem les característiques del batch generat pel generador
-            gen_features = feature_extractor(utils.normalize_batch(fake_imgs_perceptual.type(Tensor)))
+            gen_features = feature_extractor(fake_imgs_perceptual)
             # Preparem el batch d'entrada amb un "embolcall" en Variables
             real_imgs_perceptual = Variable(x.type(Tensor))
             # Extraiem les característiques del batch d'entrada
-            real_features = feature_extractor(utils.normalize_batch(real_imgs_perceptual))
+            real_features = feature_extractor(real_imgs_perceptual)
             # Calculem la pèrdua de contingut
             perceptual_loss = args.content_weight * mse_loss(gen_features.relu2_2, real_features.relu2_2)
 
@@ -184,7 +184,7 @@ def train(args):
             # Generem un batch a partit del segon batch amb soroll
             fake_diversity_2 = generator(z_2)
             # Calculem la pèrdua de diversitat
-            diversity_loss = 0.5 * torch.reciprocal(l1_loss(fake_diversity.type(Tensor), fake_diversity_2.type(Tensor)))
+            diversity_loss = 0.5 * torch.reciprocal(l1_loss(fake_diversity, fake_diversity_2))
             
             # # Definim els pesoso de les peerdues percetuals i de diversitat
             alpha = 1e-2
@@ -206,7 +206,7 @@ def train(args):
     
             # Mesura de la habilitat del discriminador de classificar les imatges generades
             real_loss = mse_loss(discriminator(real_imgs), valid)
-            fake_loss = mse_loss(discriminator(fake_imgs.type(Tensor).detach()), fake)
+            fake_loss = mse_loss(discriminator(fake_imgs.detach()), fake)
             loss_D = 0.5 * (real_loss + fake_loss)
 
             # Computem els gradients
@@ -227,10 +227,10 @@ def train(args):
             )
             
             # Desem la imatge generada cada interval de epoch especificat per paràmetre
-            batches_done = epoch * len(train_loader) + batch_id
-            if batches_done % args.log_interval == 0:
-                save_image(fake_imgs.data[:25], "/content/drive/My Drive/TFM/Generative Adversarial network/Artsy-gan/images/%d.png" % batches_done , nrow=5, normalize=True)
-                # save_image(fake_imgs.data[:25], "images/%d.png" % batches_done , nrow=5, normalize=True)
+            # batches_done = epoch * len(train_loader) + batch_id
+            # if batches_done % args.log_interval == 0:
+            #     save_image(fake_imgs.data[:25], "/content/drive/My Drive/TFM/Generative Adversarial network/Artsy-gan/images/%d.png" % batches_done , nrow=5, normalize=True)
+            #     # save_image(fake_imgs.data[:25], "images/%d.png" % batches_done , nrow=5, normalize=True)
 
         # S'actualitza la taxa d'aprenentatge
         lr_scheduler_G.step()
@@ -238,13 +238,13 @@ def train(args):
 
     # Desem el generador creat
     generator.eval().to(device)
-    save_model_filename = "generator_epoch_" + str(args.n_epochs) + ".pth"
+    save_model_filename = "generator_epoch_" + str(args.n_epochs) + "_wchr.pth"
     save_model_path = os.path.join(args.save_model_dir, args.dataset_name, save_model_filename)
     torch.save(generator.state_dict(), save_model_path)
     
     # Desem el discriminador creat
     discriminator.eval().to(device)
-    save_model_filename = "discriminator_epoch_" + str(args.n_epochs) + ".pth"
+    save_model_filename = "discriminator_epoch_" + str(args.n_epochs) + "_wchr.pth"
     save_model_path = os.path.join(args.save_model_dir, args.dataset_name, save_model_filename)
     torch.save(discriminator.state_dict(), save_model_path)
     
@@ -261,7 +261,7 @@ def stylize(args):
     content_image = utils.load_image(args.content_image, scale=args.content_scale)
     content_transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         # transforms.Lambda(lambda x: x.mul(255))
     ])
     content_image = content_transform(content_image)
