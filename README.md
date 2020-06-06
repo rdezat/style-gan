@@ -110,7 +110,7 @@ Es defineixen 3 funcions de pèrdua: pèrdua adversarial, pèrdua perceptiva i p
 S’aplica pèrdues adversarials de mínims quadrats de la GAN a la funció de mapeig $G:{x,z} → y$ i al seu discriminador.
 
 L’objectiu del generador és:
-
+<a href="https://www.codecogs.com/eqnedit.php?latex=L_{GAN}=&space;E_{x&space;\approx&space;p_{data}&space;(x)}&space;[(D(G(x,z))-L_{real}&space;)^2&space;]" target="_blank"><img src="https://latex.codecogs.com/gif.latex?L_{GAN}=&space;E_{x&space;\approx&space;p_{data}&space;(x)}&space;[(D(G(x,z))-L_{real}&space;)^2&space;]" title="L_{GAN}= E_{x \approx p_{data} (x)} [(D(G(x,z))-L_{real} )^2 ]" /></a>
 $L_{GAN} = E_{x~p_{data}(x)} [(D(G(x,z))-L_{real})^2]$
 
 on z és el tensor del soroll, L_real és l’etiqueta per les dades reals. G tendeix a produir imatges G(x,z) que s’assemblin a les imatges del domini Y. La pèrdua adversarial aplicada al generador s’implementa de la següent forma:
