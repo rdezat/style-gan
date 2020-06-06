@@ -107,7 +107,7 @@ Es defineixen 3 funcions de pèrdua: pèrdua adversarial, pèrdua perceptiva i p
 
 #### Pèrdua adversarial
 
-S’aplica pèrdues adversarials de mínims quadrats de la GAN a la funció de mapeig $G:{x,z} → y$ i al seu discriminador.
+S’aplica pèrdues adversarials de mínims quadrats de la GAN a la funció de mapeig <img src="https://render.githubusercontent.com/render/math?math=G:{x,z} → y"> i al seu discriminador.
 
 L’objectiu del generador és:
 
