@@ -2,7 +2,7 @@
 
 Aquest repositori conté una implementació en Pytorch d'una algoritme per la transferència d'estil artístic a través una xarxa generativa adversarial (GAN).
 
-El model utilitzant es troba descrit a [Artsy–GAN: A style transfer system with improved quality, diversity and performance](https://doi.org/10.1109/icpr.2018.8546172)
+El model utilitzant es troba descrit a [Artsy–GAN: A style transfer system with improved quality, diversity and performance](https://doi.org/10.1109/icpr.2018.8546172).
 
 L'objectiu del model és aprendre un mapeig d'un domini __X__ a un domini __Y__.
 
