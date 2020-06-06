@@ -69,7 +69,7 @@ def plot_history(d1_hist, g1_hist, g2_hist, g3_hist, g4_hist):
     
     # save plot to file
     # pyplot.savefig('results_opt/plot_line_plot_loss_wchr.png')
-    pyplot.savefig('/content/drive/My Drive/TFM/Generative Adversarial network/Artsy-gan/results_opt/plot_line_plot_loss_wchr.png')
+    pyplot.savefig('/Artsy-gan/results_opt/plot_line_plot_loss_wchr.png')
     pyplot.close()
 
 # Funció d'entrenament del model de transferència d'estil
@@ -91,10 +91,10 @@ def train(args):
     
     if args.epoch != 0:
         # Load pretrained models
-        generator.load_state_dict(torch.load("models/%s/generator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch), map_location=device))
-        discriminator.load_state_dict(torch.load("models/%s/discriminator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch), map_location=device)['model_state_dict'])
-        # generator.load_state_dict(torch.load("/content/drive/My Drive/TFM/Generative Adversarial network/Artsy-gan/models/%s/generator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch)))
-        # discriminator.load_state_dict(torch.load("/content/drive/My Drive/TFM/Generative Adversarial network/Artsy-gan/models/%s/discriminator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch)))
+        # generator.load_state_dict(torch.load("models/%s/generator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch), map_location=device))
+        # discriminator.load_state_dict(torch.load("models/%s/discriminator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch), map_location=device)['model_state_dict'])
+        generator.load_state_dict(torch.load("/Artsy-gan/models/%s/generator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch)))
+        discriminator.load_state_dict(torch.load("/Artsy-gan/models/%s/discriminator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch)))
 
     #  Es posa l'extractor de característiques en mode d'inferència
     feature_extractor.eval()
@@ -306,11 +306,6 @@ def main():
     train_arg_parser.add_argument("--b1", type=float, default=0.5, help="adam: decay of first order momentum of gradient")
     train_arg_parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
     train_arg_parser.add_argument("--decay_epoch", type=int, default=100, help="epoch from which to start lr decay")
-    train_arg_parser.add_argument("--log-interval", type=int, default=5000,
-                                  help="number of images after which the training loss is logged, default is 5000")
-    train_arg_parser.add_argument("--checkpoint-interval", type=int, default=5000,
-                                  help="number of batches after which a checkpoint of the trained model will be created")
-    train_arg_parser.add_argument("--latent_dim", type=int, default=100, help="dimensionality of the latent space")
     train_arg_parser.add_argument("--content-weight", type=float, default=1,
                                   help="weight for content-loss, default is 1")
 
@@ -325,8 +320,6 @@ def main():
                                  help="saved model to be used for stylizing the image. If file ends in .pth - PyTorch path is used, if in .onnx - Caffe2 path")
     eval_arg_parser.add_argument("--cuda", type=int, required=True,
                                  help="set it to 1 for running on GPU, 0 for CPU")
-    eval_arg_parser.add_argument("--export_onnx", type=str,
-                                 help="export ONNX model to a given file")
 
     args = main_arg_parser.parse_args()
 
