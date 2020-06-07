@@ -111,70 +111,79 @@ S’aplica pèrdues adversarials de mínims quadrats de la GAN a la funció de m
 
 L’objectiu del generador és:
 
-<img src="https://render.githubusercontent.com/render/math?math=L_{GAN} = E_{x\approx \rho _{data}(x)} [(D(G(x,z))-L_{real})^2]">
+<img src="https://render.githubusercontent.com/render/math?math=L_{GAN} = E_{x\sim \rho _{data}(x)} [(D(G(x,z))-L_{real})^2]">
 
-on z és el tensor del soroll, L_real és l’etiqueta per les dades reals. G tendeix a produir imatges G(x,z) que s’assemblin a les imatges del domini Y. La pèrdua adversarial aplicada al generador s’implementa de la següent forma:
+on __z__ és el tensor del soroll, <img src="https://render.githubusercontent.com/render/math?math=L_{real}"> és l’etiqueta per les dades reals. __G__ tendeix a produir imatges __G(x,z)__ que s’assemblin a les imatges del domini __Y__. La pèrdua adversarial aplicada al generador s’implementa de la següent forma:
 
-adversarial_loss = mse_loss(discriminator(fake_imgs), valid)
-
+```python
+	adversarial_loss = mse_loss(discriminator(fake_imgs), valid)
+```
 on __fake_imgs__ son les imatges resultat del generador i __valid__ l’etiqueta per les dades reals.
 
 L’objectiu del discriminador és:
 
-L_D = E_(y~p_data (y)) [(D(y)-L_real )^2 ] + E_(x~p_data (x)) [(D(G(x,z))-L_fake )^2 ]
+<img src="https://render.githubusercontent.com/render/math?math=L_D = E_{y \sim p_{data}(y)} [(D(y)-L_{real} )^2 ] + E_{x\sim p_{data}(x)} [(D(G(x,z))-L_{fake} )^2 ]">
 
-on L_fake  és l’etiqueta per les dades falses. El discriminador intenta distingir entre les imatges traslladades G(x,z) i les imatges reals y, és a dir:
+on <img src="https://render.githubusercontent.com/render/math?math=L_{fake}">  és l’etiqueta per les dades falses. El discriminador intenta distingir entre les imatges traslladades __G(x,z)__ i les imatges reals __y__, és a dir:
 
-real_loss = mse_loss(discriminator(real_imgs), valid)
-fake_loss = mse_loss(discriminator(fake_imgs.detach()), fake)
-loss_D = 0.5 * (real_loss + fake_loss)
+```python
+	real_loss = mse_loss(discriminator(real_imgs), valid)
+	fake_loss = mse_loss(discriminator(fake_imgs.detach()), fake)
+	loss_D = 0.5 * (real_loss + fake_loss)
+```
 
 #### Pèrdua perceptiva
 
 S’aplica la funció perceptiva descrita en l’article de [Johnson et al](https://arxiv.org/abs/1603.08155) per mesurar les diferencies semàntiques i perceptives entre les imatges. 
 
-Una xarxa de codificació de característiques entrenat per la classificació d’imatges s’utilitza per extreure les característiques perceptives de les imatges. Sigui ϕ_j (x) les sortides de la capa j-èssima de la xarxa de codificació de característiques ϕ en processar la imatge x. Si j-èssima és una capa convolucional, ϕ_j (x) seria un mapa de característiques de la forma C_j×H_j×W_j. Llavors la pèrdua perceptiva del generador és la distància Euclidiana entre representacions de característiques:
+Una xarxa de codificació de característiques entrenat per la classificació d’imatges s’utilitza per extreure les característiques perceptives de les imatges. Sigui <img src="https://render.githubusercontent.com/render/math?math=\varphi _j (x)"> les sortides de la capa __j-èssima__ de la xarxa de codificació de característiques <img src="https://render.githubusercontent.com/render/math?math=\varphi "> en processar la imatge __x__. Si __j-èssima__ és una capa convolucional, <img src="https://render.githubusercontent.com/render/math?math=\varphi _j (x)"> seria un mapa de característiques de la forma <img src="https://render.githubusercontent.com/render/math?math=C_j\times H_j\times W_j">. Llavors la pèrdua perceptiva del generador és la distància Euclidiana entre representacions de característiques:
 
-L_PERCEPTUAL = 1/(C_j H_j W_j ) [‖ϕ_j (x)-ϕ_j (G(x,z))‖^2 ]
+<img src="https://render.githubusercontent.com/render/math?math=L_{PERCEPTUAL} = \frac{1}{C_j H_j W_j}\left [ \left \| \varphi_j(x)-\varphi_j(G(x,z)) \right \|^2 \right ] ">
 
 S’ha utilitzat una xarxa VGG-19 preentrenada en ImageNet com a xarxa de codificació de característiques.
 
 El càlcul de la pèrdua perceptiva es realitza de la següent manera:
 
-gen_features = features_extractor(fake_imgs_perceptual)
-real_features = features_extractor(real_imgs_perceptual)
-perceptual_loss = args.content_weight * mse_loss(gen_features.relu2_2, real_features.relu2_2)
+```python
+	gen_features = features_extractor(fake_imgs_perceptual)
+	real_features = features_extractor(real_imgs_perceptual)
+	perceptual_loss = args.content_weight * mse_loss(gen_features.relu2_2, real_features.relu2_2)
+```
 
 #### Pèrdua de diversitat
 
 Per poder plasmar la diversitat del dataset d’entrada en la generació de sortides, s’introduieix soroll a l’entrada dels nostres sistemes. Com realitza Ulyanov en [Texture Networks](https://arxiv.org/pdf/1603.03417.pdf), s’utilitza una funció objectiva que pot afavorir la diversitat en la transferència d'estil, descrita com:
 
-L_TN=-1/N ∑_(i=1)^N λ  ln⁡min┬(j≠i)⁡‖g(z_i )-g(z_j )‖ 
+<img src="https://render.githubusercontent.com/render/math?math=L_{TN}=-\frac{1}{N}\sum_{i=1}^{N}\lambda ln \min_{j\neq i}\left \| g(z_i )-g(z_j ) \right \| ">
 
-on N és el nombre de sorolls d’entrada i també el nombre de sortides, λ és el pes de la pèrdua de diversitat en la pèrdua total, i g(x) és la xarxa per produir les imatges estilitzades.
+on __N__ és el nombre de sorolls d’entrada i també el nombre de sortides, <img src="https://render.githubusercontent.com/render/math?math=\lambda"> és el pes de la pèrdua de diversitat en la pèrdua total, i __g(x)__ és la xarxa per produir les imatges estilitzades.
 
 En aquest cas es proposa una nova funció de pèrdua per fomentar la diversitat en la traducció d’imatge a imatge. Es mesura la mitjana de la distància entre les imatges de sortida i s’utilitza la reciprocitat per maximitzar-la. La pèrdua de diversitat ve donada per:
 
-L_DIVERSITY=-1/N ∑_(i=1)^N 1/(mean_(j≠i)⁡‖g(z_i )-g(z_j )‖+ ϵ)
-
+<img src="https://render.githubusercontent.com/render/math?math=L_{DIVERSITY}=-\frac{1}{N}\sum_{i=1}^{N} \frac{1}{mean_{j\neq i}\left \| g(z_i )-g(z_j ) \right \| + \varepsilon }">
+  
 Per tal de calcular la pèrdua de diversitat, creem dos nous tensors a partir del input afegint-li soroll gaussià:
 
-z = Variable(AddGaussianNoise(0,1).__call__(x).type(Tensor))
-z_2 = Variable(AddGaussianNoise(0,1).__call__(x).type(Tensor))
+```python
+	z = Variable(AddGaussianNoise(0,1).__call__(x).type(Tensor))
+	z_2 = Variable(AddGaussianNoise(0,1).__call__(x).type(Tensor))
+```
 
 Aquest tensors amb soroll, es passen per la xarxa del generador i és calcula la pèrdua de diversitat de la següent manera:
 
-fake_diversity = generator(z)
-fake_diversity_2 = generator(z_2)
-diversity_loss = 0.5 * torch.reciprocal(l1_loss(fake_diversity, fake_diversity_2))
+```python
+	fake_diversity = generator(z)
+	fake_diversity_2 = generator(z_2)
+	diversity_loss = 0.5 * torch.reciprocal(l1_loss(fake_diversity, fake_diversity_2))
+```
 
 #### Pèrdua Total
 
 La pèrdua total a minimitzar, en el cas del generador quedaria:
 
-L_TOT = L_GAN+αL_PERCEPTUAL+βL_DIVERSITY
+<img src="https://render.githubusercontent.com/render/math?math=L_{DIVERSITY}=L_{TOT} = L_{GAN}+\alpha L_{PERCEPTUAL}+\beta L_{DIVERSITY}">
 
-On alfa és igual a 1e-2 i beta igual a 1e-2.
+On <img src="https://render.githubusercontent.com/render/math?math=\alpha "> és igual a __1e-2__ i <img src="https://render.githubusercontent.com/render/math?math=\beta "> igual a __1e-2__.
 
 En el cas del discriminador, l’objectiu és minimitzar la perdia adversarial plantejada anteriorment.
 
@@ -182,11 +191,11 @@ En el cas del discriminador, l’objectiu és minimitzar la perdia adversarial p
 
 Pel tal d'evaluar el model i realitzar la transferència d'estil, s'executa l'arxiu main.py (o main_wchr.py, segons com s'hagi entrenat el model) amb els següents paràmetres:
 
-* `--content-image´: Ruta i nom de la imatge que volem estilitzar.
-* `--content-scale´: Factor de disminució de la imtages a estilitzar, per defecte None.
-* `--output-image´: Ruta i nom de la imatge de sortida.
-* `--model´: Ruta i nom del model que es vol utilitzar per l'estilització. 
-* `--cuda´: Runtime utilitzat en l'estilització. S'informa 1 per executar sobre GPU, 0 per CPU. Obligatori.
+* `--content-image`: Ruta i nom de la imatge que volem estilitzar.
+* `--content-scale`: Factor de disminució de la imtages a estilitzar, per defecte None.
+* `--output-image`: Ruta i nom de la imatge de sortida.
+* `--model`: Ruta i nom del model que es vol utilitzar per l'estilització. 
+* `--cuda`: Runtime utilitzat en l'estilització. S'informa 1 per executar sobre GPU, 0 per CPU. Obligatori.
 
 ## Resultats
 
