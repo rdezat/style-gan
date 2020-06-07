@@ -78,8 +78,8 @@ Conté tres blocs de downsampling seguits per una capa de [Instance Normalizatio
 
 Les capes convolucionals dels blocs de downsampling tenen la següent estructura:
 
-1.Es carrega el tensor d’entrada mitjançant la reflexió del límit d’entrada.
-2.S’aplica una convolució 2D sobre el tensor d’entrada compost per diversos plans d’entrada.
+1. Es carrega el tensor d’entrada mitjançant la reflexió del límit d’entrada.
+2. S’aplica una convolució 2D sobre el tensor d’entrada compost per diversos plans d’entrada.
 
 Els blocs residuals es construeixen amb dues capes convolucionals com les anteriors, amb els mateixos canals d’entrada i sortida, i una mida de Kernel igual a 3, seguides d’una capa de normalització d’instància. En el primer grup de capes dels blocs residuals s’aplica la funció d’unitat lineal rectificada per elements com a funció d’activació.
 
