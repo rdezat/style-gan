@@ -125,7 +125,7 @@ on __fake_imgs__ son les imatges resultat del generador i __valid__ l’etiqueta
 L’objectiu del discriminador és:
 
 <p align="center">
-    <img src="https://render.githubusercontent.com/render/math?math=L_D = E_{y \sim p_{data}(y)} [(D(y)-L_{real} )^2 ] + E_{x\sim p_{data}(x)} [(D(G(x,z))-L_{fake} )^2 ]">
+    <img src="https://render.githubusercontent.com/render/math?math=L_D = E_{y \sim p_{data}(y)} [(D(y)-L_{real} )^2 ] %2B E_{x\sim p_{data}(x)} [(D(G(x,z))-L_{fake} )^2 ]">
 </p>
 
 on <img src="https://render.githubusercontent.com/render/math?math=L_{fake}">  és l’etiqueta per les dades falses. El discriminador intenta distingir entre les imatges traslladades __G(x,z)__ i les imatges reals __y__, és a dir:
@@ -192,7 +192,7 @@ Aquest tensors amb soroll, es passen per la xarxa del generador i és calcula la
 La pèrdua total a minimitzar, en el cas del generador quedaria:
 
 <p align="center">
-    <img src="https://render.githubusercontent.com/render/math?math=L_{DIVERSITY}=L_{TOT} = L_{GAN} + \alpha L_{PERCEPTUAL} + \beta L_{DIVERSITY}">
+    <img src="https://render.githubusercontent.com/render/math?math=L_{DIVERSITY}=L_{TOT} = L_{GAN} %2B \alpha L_{PERCEPTUAL} %2B \beta L_{DIVERSITY}">
 </p>
 
 On <img src="https://render.githubusercontent.com/render/math?math=\alpha "> és igual a __1e-2__ i <img src="https://render.githubusercontent.com/render/math?math=\beta "> igual a __1e-2__.
