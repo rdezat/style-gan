@@ -111,7 +111,9 @@ S’aplica pèrdues adversarials de mínims quadrats de la GAN a la funció de m
 
 L’objectiu del generador és:
 
-<img src="https://render.githubusercontent.com/render/math?math=L_{GAN} = E_{x\sim \rho _{data}(x)} [(D(G(x,z))-L_{real})^2]">
+<p align="center">
+    <img src="https://render.githubusercontent.com/render/math?math=L_{GAN} = E_{x\sim \rho _{data}(x)} [(D(G(x,z))-L_{real})^2]">
+</p>
 
 on __z__ és el tensor del soroll, <img src="https://render.githubusercontent.com/render/math?math=L_{real}"> és l’etiqueta per les dades reals. __G__ tendeix a produir imatges __G(x,z)__ que s’assemblin a les imatges del domini __Y__. La pèrdua adversarial aplicada al generador s’implementa de la següent forma:
 
@@ -122,7 +124,9 @@ on __fake_imgs__ son les imatges resultat del generador i __valid__ l’etiqueta
 
 L’objectiu del discriminador és:
 
-<img src="https://render.githubusercontent.com/render/math?math=L_D = E_{y \sim p_{data}(y)} [(D(y)-L_{real} )^2 ] + E_{x\sim p_{data}(x)} [(D(G(x,z))-L_{fake} )^2 ]">
+<p align="center">
+    <img src="https://render.githubusercontent.com/render/math?math=L_D = E_{y \sim p_{data}(y)} [(D(y)-L_{real} )^2 ] + E_{x\sim p_{data}(x)} [(D(G(x,z))-L_{fake} )^2 ]">
+</p>
 
 on <img src="https://render.githubusercontent.com/render/math?math=L_{fake}">  és l’etiqueta per les dades falses. El discriminador intenta distingir entre les imatges traslladades __G(x,z)__ i les imatges reals __y__, és a dir:
 
@@ -138,7 +142,9 @@ S’aplica la funció perceptiva descrita en l’article de [Johnson et al](http
 
 Una xarxa de codificació de característiques entrenat per la classificació d’imatges s’utilitza per extreure les característiques perceptives de les imatges. Sigui <img src="https://render.githubusercontent.com/render/math?math=\varphi _j (x)"> les sortides de la capa __j-èssima__ de la xarxa de codificació de característiques <img src="https://render.githubusercontent.com/render/math?math=\varphi "> en processar la imatge __x__. Si __j-èssima__ és una capa convolucional, <img src="https://render.githubusercontent.com/render/math?math=\varphi _j (x)"> seria un mapa de característiques de la forma <img src="https://render.githubusercontent.com/render/math?math=C_j\times H_j\times W_j">. Llavors la pèrdua perceptiva del generador és la distància Euclidiana entre representacions de característiques:
 
-<img src="https://render.githubusercontent.com/render/math?math=L_{PERCEPTUAL} = \frac{1}{C_j H_j W_j}\left [ \left \| \varphi_j(x)-\varphi_j(G(x,z)) \right \|^2 \right ] ">
+<p align="center">
+    <img src="https://render.githubusercontent.com/render/math?math=L_{PERCEPTUAL} = \frac{1}{C_j H_j W_j}\left [ \left \| \varphi_j(x)-\varphi_j(G(x,z)) \right \|^2 \right ] ">
+</p>
 
 S’ha utilitzat una xarxa VGG-19 preentrenada en ImageNet com a xarxa de codificació de característiques.
 
@@ -154,14 +160,18 @@ El càlcul de la pèrdua perceptiva es realitza de la següent manera:
 
 Per poder plasmar la diversitat del dataset d’entrada en la generació de sortides, s’introduieix soroll a l’entrada dels nostres sistemes. Com realitza Ulyanov en [Texture Networks](https://arxiv.org/pdf/1603.03417.pdf), s’utilitza una funció objectiva que pot afavorir la diversitat en la transferència d'estil, descrita com:
 
-<img src="https://render.githubusercontent.com/render/math?math=L_{TN}=-\frac{1}{N}\sum_{i=1}^{N}\lambda ln \min_{j\neq i}\left \| g(z_i )-g(z_j ) \right \| ">
+<p align="center">
+    <img src="https://render.githubusercontent.com/render/math?math=L_{TN}=-\frac{1}{N}\sum_{i=1}^{N}\lambda ln \min_{j\neq i}\left \| g(z_i )-g(z_j ) \right \| ">
+</p>
 
 on __N__ és el nombre de sorolls d’entrada i també el nombre de sortides, <img src="https://render.githubusercontent.com/render/math?math=\lambda"> és el pes de la pèrdua de diversitat en la pèrdua total, i __g(x)__ és la xarxa per produir les imatges estilitzades.
 
 En aquest cas es proposa una nova funció de pèrdua per fomentar la diversitat en la traducció d’imatge a imatge. Es mesura la mitjana de la distància entre les imatges de sortida i s’utilitza la reciprocitat per maximitzar-la. La pèrdua de diversitat ve donada per:
 
-<img src="https://render.githubusercontent.com/render/math?math=L_{DIVERSITY}=-\frac{1}{N}\sum_{i=1}^{N} \frac{1}{mean_{j\neq i}\left \| g(z_i )-g(z_j ) \right \| + \varepsilon }">
-  
+<p align="center">
+    <img src="https://render.githubusercontent.com/render/math?math=L_{DIVERSITY}=-\frac{1}{N}\sum_{i=1}^{N} \frac{1}{mean_{j\neq i}\left \| g(z_i )-g(z_j ) \right \| + \varepsilon }">
+</p>
+
 Per tal de calcular la pèrdua de diversitat, creem dos nous tensors a partir del input afegint-li soroll gaussià:
 
 ```python
@@ -181,7 +191,9 @@ Aquest tensors amb soroll, es passen per la xarxa del generador i és calcula la
 
 La pèrdua total a minimitzar, en el cas del generador quedaria:
 
-<img src="https://render.githubusercontent.com/render/math?math=L_{DIVERSITY}=L_{TOT} = L_{GAN}+\alpha L_{PERCEPTUAL}+\beta L_{DIVERSITY}">
+<p align="center">
+    <img src="https://render.githubusercontent.com/render/math?math=L_{DIVERSITY}=L_{TOT} = L_{GAN}+\alpha L_{PERCEPTUAL}+\beta L_{DIVERSITY}">
+</p>
 
 On <img src="https://render.githubusercontent.com/render/math?math=\alpha "> és igual a __1e-2__ i <img src="https://render.githubusercontent.com/render/math?math=\beta "> igual a __1e-2__.
 
