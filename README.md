@@ -169,7 +169,7 @@ on __N__ és el nombre de sorolls d’entrada i també el nombre de sortides, <i
 En aquest cas es proposa una nova funció de pèrdua per fomentar la diversitat en la traducció d’imatge a imatge. Es mesura la mitjana de la distància entre les imatges de sortida i s’utilitza la reciprocitat per maximitzar-la. La pèrdua de diversitat ve donada per:
 
 <p align="center">
-    <img src="https://render.githubusercontent.com/render/math?math=L_{DIVERSITY}=-\frac{1}{N}\sum_{i=1}^{N} \frac{1}{mean_{j\neq i}\left \| g(z_i )-g(z_j ) \right \| + \varepsilon }">
+    <img src="https://render.githubusercontent.com/render/math?math=L_{DIVERSITY}=-\frac{1}{N}\sum_{i=1}^{N} \frac{1}{mean_{j\neq i}\left \| g(z_i )-g(z_j ) \right \| %2B \varepsilon }">
 </p>
 
 Per tal de calcular la pèrdua de diversitat, creem dos nous tensors a partir del input afegint-li soroll gaussià:
