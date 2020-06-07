@@ -30,10 +30,10 @@ from networks.encoder import FeatureExtractor
 # tan de checkpoint com final. En el cas de no existir, les crea
 def check_paths(args):
     try:
-        if not os.path.exists('/style-gan/models/' + args.dataset_name):
-            os.makedirs('/style-gan/models/' + args.dataset_name)
-        if not os.path.exists('/style-gan/results_opt/' + args.dataset_name):
-            os.makedirs('/style-gan/results_opt/' + args.dataset_name)
+        if not os.path.exists('style-gan/models/' + args.dataset_name):
+            os.makedirs('style-gan/models/' + args.dataset_name)
+        if not os.path.exists('style-gan/results_opt/' + args.dataset_name):
+            os.makedirs('style-gan/results_opt/' + args.dataset_name)
     except OSError as e:
         print(e)
         sys.exit(1)
@@ -71,7 +71,7 @@ def plot_history(d1_hist, g1_hist, g2_hist, g3_hist, g4_hist, dataset_name, n_ep
     
     # save plot to file
     # pyplot.savefig('results_opt/plot_line_plot_loss_wchr.png')
-    pyplot.savefig('/style-gan/results_opt/%s/plot_line_plot_loss_wchr_%d.png' % (dataset_name, n_epochs))
+    pyplot.savefig('style-gan/results_opt/%s/plot_line_plot_loss_wchr_%d.png' % (dataset_name, n_epochs))
     pyplot.close()
 
 # Funció d'entrenament del model de transferència d'estil
@@ -95,8 +95,8 @@ def train(args):
         # Load pretrained models
         # generator.load_state_dict(torch.load("models/%s/generator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch), map_location=device))
         # discriminator.load_state_dict(torch.load("models/%s/discriminator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch), map_location=device)['model_state_dict'])
-        generator.load_state_dict(torch.load("/style-gan/models/%s/generator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch)))
-        discriminator.load_state_dict(torch.load("/style-gan/models/%s/discriminator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch)))
+        generator.load_state_dict(torch.load("style-gan/models/%s/generator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch)))
+        discriminator.load_state_dict(torch.load("style-gan/models/%s/discriminator_epoch_%d_wchr.pth" % (args.dataset_name, args.epoch)))
 
     #  Es posa l'extractor de característiques en mode d'inferència
     feature_extractor.eval()
@@ -115,7 +115,7 @@ def train(args):
     ])
     
     # Carreguem les imatges en la carpeta dataset i apliquem les transformacions
-    dataset_path = '/style-gan/datasets/' + args.dataset_name
+    dataset_path = 'style-gan/datasets/' + args.dataset_name
     train_dataset = datasets.ImageFolder(dataset_path, transform)
     # Creem un iterable soble el conjunt d'imatges amb un batch definit per paràmetre 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size)
@@ -242,26 +242,26 @@ def train(args):
     # Desem el generador creat
     generator.eval().to(device)
     save_model_filename = "generator_epoch_" + str(args.n_epochs) + "_wchr.pth"
-    save_model_path = os.path.join('/style-gan/models/', args.dataset_name, save_model_filename)
+    save_model_path = os.path.join('style-gan/models/', args.dataset_name, save_model_filename)
     torch.save(generator.state_dict(), save_model_path)
     
     # Desem el discriminador creat
     discriminator.eval().to(device)
     save_model_filename = "discriminator_epoch_" + str(args.n_epochs) + "_wchr.pth"
-    save_model_path = os.path.join('/style-gan/models/', args.dataset_name, save_model_filename)
+    save_model_path = os.path.join('style-gan/models/', args.dataset_name, save_model_filename)
     torch.save(discriminator.state_dict(), save_model_path)
     
     # Grafiquem la història de pèrdues
     plot_history(d1_hist, g1_hist, g2_hist, g3_hist, g4_hist, args.dataset_name, args.n_epochs )
     
     # Final de l'entrenament
-    print("\nDone, trained model saved at", '/style-gan/models/' + args.dataset_name)
+    print("\nDone, trained model saved at", 'style-gan/models/' + args.dataset_name)
 
 
 def stylize(args):
     device = torch.device("cuda" if args.cuda else "cpu")
 
-    content_image = utils.load_image('/style-gan/images/eval/' + args.content_image, scale=args.content_scale)
+    content_image = utils.load_image('style-gan/images/eval/' + args.content_image, scale=args.content_scale)
     content_transform = transforms.Compose([
         transforms.ToTensor(),
     ])
@@ -282,7 +282,7 @@ def stylize(args):
       transforms.Lambda(lambda x: x.mul(255))
     ])
     output = output_transform(output)
-    utils.save_image('/style-gan/images/eval/' + args.output_image, output[0])
+    utils.save_image('style-gan/images/eval/' + args.output_image, output[0])
 
 def main():
     main_arg_parser = argparse.ArgumentParser(description="parser for Artsy-GAN")
