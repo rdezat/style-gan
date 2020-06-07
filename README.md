@@ -115,7 +115,7 @@ L’objectiu del generador és:
     <img src="https://render.githubusercontent.com/render/math?math=L_{GAN} = E_{x\sim \rho _{data}(x)} [(D(G(x,z))-L_{real})^2]">
 </p>
 
-on __z__ és el tensor del soroll, <img src="https://render.githubusercontent.com/render/math?math=L_{real}"> és l’etiqueta per les dades reals. __G__ tendeix a produir imatges __G(x,z)__ que s’assemblin a les imatges del domini __Y__. La pèrdua adversarial aplicada al generador s’implementa de la següent forma:
+on __z__ és el tensor del soroll i <img src="https://render.githubusercontent.com/render/math?math=L_{real}"> és l’etiqueta per les dades reals. __G__ tendeix a produir imatges __G(x,z)__ que s’assemblin a les imatges del domini __Y__. La pèrdua adversarial aplicada al generador s’implementa de la següent forma:
 
 ```python
 	adversarial_loss = mse_loss(discriminator(fake_imgs), valid)
