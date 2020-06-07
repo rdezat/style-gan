@@ -192,7 +192,7 @@ Aquest tensors amb soroll, es passen per la xarxa del generador i és calcula la
 La pèrdua total a minimitzar, en el cas del generador quedaria:
 
 <p align="center">
-    <img src="https://render.githubusercontent.com/render/math?math=L_{DIVERSITY}=L_{TOT} = L_{GAN}+\alpha L_{PERCEPTUAL}+\beta L_{DIVERSITY}">
+    <img src="https://render.githubusercontent.com/render/math?math=L_{DIVERSITY}=L_{TOT} = L_{GAN} + \alpha L_{PERCEPTUAL} + \beta L_{DIVERSITY}">
 </p>
 
 On <img src="https://render.githubusercontent.com/render/math?math=\alpha "> és igual a __1e-2__ i <img src="https://render.githubusercontent.com/render/math?math=\beta "> igual a __1e-2__.
