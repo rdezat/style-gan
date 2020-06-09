@@ -244,3 +244,8 @@ El resultat és el següent:
     <img src="images/eval/output_pollock_2000_256.jpg">
     <img src="datasets/pollock/train/number-5-1948-1.jpg">
 </p>
+
+
+<p align="center">
+    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/resultats/fotografia_pollock_v3/output_generated_at_iteration_4900.png">
+</p>
