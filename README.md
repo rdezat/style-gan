@@ -214,7 +214,7 @@ Pel tal d'evaluar el model i realitzar la transferència d'estil, s'executa l'ar
 S'ha entrenat un model utilitzant el següent:
 
 * Arxiu main_wchr.py, és a dir, sense chroma subsampling.
-* Conjunt d'imatges d'entranament de vangogh
+* Conjunt d'imatges d'entrenament de vangogh
 * Nombre de èpoques totals 2000. Entrenades de 100 en 100 degut a limitacions en les hores d'execució en Colab.
 * Època de decaïment 10
 * Mida de lot 4
@@ -225,4 +225,20 @@ El resultat és el següent:
 <p align="center">
     <img src="images/eval/IMG_20190806_191012_256.jpg">
     <img src="images/eval/output_vangogh_wchr_1800_256.jpg">
+</p>
+
+També s'ha entrenat un model utilitzant el següent:
+
+* Arxiu main.py, és a dir, amb chroma subsampling.
+* Conjunt d'imatges d'entrenament de pollock
+* Nombre de èpoques totals 2000. Entrenades de 400 en 400 degut a limitacions en les hores d'execució en Colab.
+* Època de decaïment 50
+* Mida de lot 4
+* Resta de paràmetres per defecte
+
+El resultat és el següent:
+
+<p align="center">
+    <img src="images/eval/IMG_20190806_191012_256.jpg">
+    <img src="images/eval/output_pollock_2000_256.jpg">
 </p>
