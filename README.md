@@ -256,24 +256,24 @@ Els resultats obtinguts en aquestes proves han estat les següents:
 * Transferència de l'estil de Pollock:
 
 <p align="center">
-    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/fotografia.jpg height=256">
-    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/resultats/fotografia_pollock_v3/output_generated_at_iteration_4900.png height=256">
-    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/pollock.jpg height=256">
+    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/fotografia.jpg" height="256">
+    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/resultats/fotografia_pollock_v3/output_generated_at_iteration_4900.png" height="256">
+    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/pollock.jpg" height="256">
 </p>
 
 * Transferència de l'estil de Picasso:
 
 <p align="center">
-    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/transsegre.jpg">
-    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/resultats/transsegre_picasso(avignon)/output_generated_at_iteration_4900.png height=256">
-    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/picasso.jpg height=256">
+    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/transsegre.jpg" height="256">
+    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/resultats/transsegre_picasso(avignon)/output_generated_at_iteration_4900.png" height="256">
+    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/picasso.jpg" height="256">
 </p>
 
 * Transferència de l'estil de Vangogh:
 
 <p align="center">
-    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/fotografia.jpg">
-    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/resultats/fotografia_vangogh/output_generated_at_iteration_4900.png height=256">
-    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/vangogh.jpg height=256">
+    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/fotografia.jpg" height="256">
+    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/resultats/fotografia_vangogh/output_generated_at_iteration_4900.png" height="256">
+    <img src="https://github.com/rdezat/keras-neural-st/blob/master/images/vangogh.jpg" height="256">
 </p>
 
