@@ -199,9 +199,9 @@ On <img src="https://render.githubusercontent.com/render/math?math=\alpha "> és
 
 En el cas del discriminador, l’objectiu és minimitzar la pèrdua adversarial plantejada anteriorment.
 
-## Evaluació
+## Avaluació
 
-Pel tal d'evaluar el model i realitzar la transferència d'estil, s'executa l'arxiu main.py (o main_wchr.py, segons com s'hagi entrenat el model) amb els següents paràmetres:
+Pel tal d'avaluar el model i realitzar la transferència d'estil, s'executa l'arxiu main.py (o main_wchr.py, segons com s'hagi entrenat el model) amb els següents paràmetres:
 
 * `--content-image`: Ruta i nom de la imatge que volem estilitzar.
 * `--content-scale`: Factor de disminució de la imtages a estilitzar, per defecte None.
