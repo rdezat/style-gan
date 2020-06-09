@@ -225,7 +225,7 @@ El resultat és el següent:
 <p align="center">
     <img src="images/eval/IMG_20190806_191012_256.jpg">
     <img src="images/eval/output_vangogh_wchr_1800_256.jpg">
-    <img src="datasets/vangogh/00683.jpg">
+    <img src="datasets/vangogh/train/00683.jpg">
 </p>
 
 També s'ha entrenat un model utilitzant el següent:
@@ -242,5 +242,5 @@ El resultat és el següent:
 <p align="center">
     <img src="images/eval/IMG_20190806_191012_256.jpg">
     <img src="images/eval/output_pollock_2000_256.jpg">
-    <img src="datasets/pollock/number-5-1948-1.jpg">
+    <img src="datasets/pollock/train/number-5-1948-1.jpg">
 </p>
